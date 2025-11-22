@@ -128,10 +128,31 @@ const appendToGoogleSheets = async (registrationData) => {
 // MongoDB connection
 let db;
 let registrationsCollection;
+let client;
+let isConnecting = false;
 
 const connectDB = async () => {
+  // If already connected, return
+  if (registrationsCollection) {
+    return;
+  }
+
+  // If connection is in progress, wait
+  if (isConnecting) {
+    await new Promise(resolve => {
+      const checkConnection = setInterval(() => {
+        if (registrationsCollection || !isConnecting) {
+          clearInterval(checkConnection);
+          resolve();
+        }
+      }, 100);
+    });
+    return;
+  }
+
+  isConnecting = true;
   try {
-    const client = new MongoClient(process.env.MONGODB_URI);
+    client = new MongoClient(process.env.MONGODB_URI);
     await client.connect();
     db = client.db('thm25');
     registrationsCollection = db.collection('tickets');
@@ -144,7 +165,10 @@ const connectDB = async () => {
     console.log('✅ Connected to MongoDB successfully');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
-    process.exit(1);
+    registrationsCollection = null;
+    throw error;
+  } finally {
+    isConnecting = false;
   }
 };
 
@@ -297,6 +321,9 @@ app.post('/api/register', registrationLimiter, upload.single('transactionScreens
   const registrationStartTime = Date.now();
   
   try {
+    // Ensure database connection for serverless
+    await connectDB();
+
     const {
       fullName,
       email,
@@ -434,6 +461,18 @@ app.get('/api/health', (req, res) => {
 // Check ticket availability endpoint
 app.get('/api/tickets/availability', async (req, res) => {
   try {
+    // Ensure database connection for serverless
+    await connectDB();
+
+    // Check if database is connected
+    if (!registrationsCollection) {
+      return res.status(503).json({
+        success: false,
+        message: 'Service temporarily unavailable',
+        error: 'Database not connected',
+      });
+    }
+
     const maxTickets = parseInt(process.env.MAX_TICKETS) || 150;
     const soldTickets = await registrationsCollection.countDocuments();
     const remainingTickets = Math.max(0, maxTickets - soldTickets);
@@ -524,12 +563,35 @@ app.use((err, req, res, next) => {
 
 // Start server
 const startServer = async () => {
-  await connectDB();
-  await initializeGoogleSheets();
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📍 Registration endpoint: http://localhost:${PORT}/api/register`);
-  });
+  try {
+    await connectDB();
+    await initializeGoogleSheets();
+    
+    // Only start listening if not in serverless environment
+    if (process.env.VERCEL !== '1') {
+      app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`📍 Registration endpoint: http://localhost:${PORT}/api/register`);
+      });
+    } else {
+      console.log('🚀 Server ready for serverless deployment');
+    }
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    // Don't exit in serverless - let it retry on next request
+    if (process.env.VERCEL !== '1') {
+      process.exit(1);
+    }
+  }
 };
 
-startServer();
+// Start server in development, or prepare for serverless
+if (process.env.VERCEL !== '1') {
+  startServer();
+} else {
+  // In serverless, connection will be established per request
+  initializeGoogleSheets().catch(console.error);
+}
+
+// Export for Vercel serverless
+module.exports = app;
