@@ -1,12 +1,12 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const rateLimit = require('express-rate-limit');
-const multer = require('multer');
-const { MongoClient } = require('mongodb');
-const { v4: uuidv4 } = require('uuid');
-const axios = require('axios');
-const { google } = require('googleapis');
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import multer from 'multer';
+import { MongoClient } from 'mongodb';
+import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
+import { google } from 'googleapis';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -623,4 +623,4 @@ if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
 }
 
 // Export for Vercel serverless
-module.exports = app;
+export default app;

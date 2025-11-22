@@ -4,7 +4,7 @@
   "description": "backend for thm25 website",
   "license": "ISC",
   "author": "Daniel Paul Perinchery",
-  "type": "commonjs",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
