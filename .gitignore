@@ -1,0 +1,22 @@
+# Environment variables (do not commit this file)
+.env
+
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+GOOGLE_SHEETS_SETUP.md
+SHEET_HEADERS.md
