@@ -11,6 +11,9 @@ import { google } from 'googleapis';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy for Vercel/production environments
+app.set('trust proxy', 1);
+
 // CORS configuration for Vercel
 const corsOptions = {
   origin: function (origin, callback) {
@@ -603,8 +606,9 @@ app.use((err, req, res, next) => {
 
 // Initialize for serverless (non-blocking)
 if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
-  // In serverless, don't initialize immediately
+  // In serverless, initialize Google Sheets without blocking
   console.log('🚀 Serverless mode detected');
+  initializeGoogleSheets().catch(err => console.error('Google Sheets init error:', err));
 } else {
   // Development mode - connect immediately
   (async () => {
