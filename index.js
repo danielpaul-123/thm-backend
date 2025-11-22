@@ -592,36 +592,25 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-const startServer = async () => {
-  try {
-    await connectDB();
-    await initializeGoogleSheets();
-    
-    // Only start listening if not in serverless environment
-    if (process.env.VERCEL !== '1') {
+// Initialize for serverless (non-blocking)
+if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
+  // In serverless, don't initialize immediately
+  console.log('🚀 Serverless mode detected');
+} else {
+  // Development mode - connect immediately
+  (async () => {
+    try {
+      await connectDB();
+      await initializeGoogleSheets();
       app.listen(PORT, () => {
         console.log(`🚀 Server running on port ${PORT}`);
         console.log(`📍 Registration endpoint: http://localhost:${PORT}/api/register`);
       });
-    } else {
-      console.log('🚀 Server ready for serverless deployment');
-    }
-  } catch (error) {
-    console.error('❌ Failed to start server:', error);
-    // Don't exit in serverless - let it retry on next request
-    if (process.env.VERCEL !== '1') {
+    } catch (error) {
+      console.error('❌ Failed to start server:', error);
       process.exit(1);
     }
-  }
-};
-
-// Start server in development, or prepare for serverless
-if (process.env.VERCEL !== '1') {
-  startServer();
-} else {
-  // In serverless, connection will be established per request
-  initializeGoogleSheets().catch(console.error);
+  })();
 }
 
 // Export for Vercel serverless
