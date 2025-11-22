@@ -111,58 +111,67 @@ const initializeGoogleSheets = async () => {
   }
 };
 
+// Synchronous function to append data to Google Sheets (for serverless)
+const appendToGoogleSheetsSync = async (registrationData) => {
+  try {
+    // Initialize Google Sheets if not already done
+    if (!sheets) {
+      await initializeGoogleSheets();
+    }
+
+    if (!sheets || !process.env.GOOGLE_SHEET_ID) {
+      console.log('⏭️  Skipping Google Sheets sync (not configured)');
+      return;
+    }
+
+    const row = [
+      registrationData.ticketId,
+      registrationData.shortTicketId,
+      registrationData.fullName,
+      registrationData.email,
+      registrationData.phone,
+      registrationData.college,
+      registrationData.branch,
+      registrationData.year,
+      registrationData.gender,
+      registrationData.accommodation,
+      registrationData.foodPreference,
+      registrationData.ieeeStatus,
+      registrationData.ieeeMembershipId || '',
+      registrationData.ticketType,
+      registrationData.transactionScreenshotUrl,
+      registrationData.status,
+      registrationData.createdAt.toISOString(),
+    ];
+
+    console.log(`📊 Attempting to sync to Google Sheets: ${registrationData.shortTicketId}`);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      range: process.env.GOOGLE_SHEET_RANGE || 'Sheet1!A:Q',
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      resource: {
+        values: [row],
+      },
+    });
+
+    console.log(`✅ Successfully synced to Google Sheets: ${registrationData.shortTicketId}`);
+  } catch (error) {
+    console.error(`❌ Failed to sync to Google Sheets for ${registrationData.shortTicketId}:`, error.message);
+    console.error('Full error:', error);
+    throw error;
+  }
+};
+
 // Function to append data to Google Sheets (background task)
 const appendToGoogleSheets = async (registrationData) => {
   // Run as background task - don't block the response
   setImmediate(async () => {
     try {
-      // Initialize Google Sheets if not already done
-      if (!sheets) {
-        await initializeGoogleSheets();
-      }
-
-      if (!sheets || !process.env.GOOGLE_SHEET_ID) {
-        console.log('⏭️  Skipping Google Sheets sync (not configured)');
-        return;
-      }
-
-      const row = [
-        registrationData.ticketId,
-        registrationData.shortTicketId,
-        registrationData.fullName,
-        registrationData.email,
-        registrationData.phone,
-        registrationData.college,
-        registrationData.branch,
-        registrationData.year,
-        registrationData.gender,
-        registrationData.accommodation,
-        registrationData.foodPreference,
-        registrationData.ieeeStatus,
-        registrationData.ieeeMembershipId || '',
-        registrationData.ticketType,
-        registrationData.transactionScreenshotUrl,
-        registrationData.status,
-        registrationData.createdAt.toISOString(),
-      ];
-
-      console.log(`📊 Attempting to sync to Google Sheets: ${registrationData.shortTicketId}`);
-
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: process.env.GOOGLE_SHEET_ID,
-        range: process.env.GOOGLE_SHEET_RANGE || 'Sheet1!A:Q',
-        valueInputOption: 'RAW',
-        insertDataOption: 'INSERT_ROWS',
-        resource: {
-          values: [row],
-        },
-      });
-
-      console.log(`✅ Successfully synced to Google Sheets: ${registrationData.shortTicketId}`);
+      await appendToGoogleSheetsSync(registrationData);
     } catch (error) {
-      console.error(`❌ Failed to sync to Google Sheets for ${registrationData.shortTicketId}:`, error.message);
-      console.error('Full error:', error);
-      // Don't throw error - this is a background task
+      // Error already logged in sync function
     }
   });
 };
@@ -456,8 +465,12 @@ app.post('/api/register', registrationLimiter, upload.single('transactionScreens
     const processingTime = Date.now() - registrationStartTime;
     console.log(`✅ Registration successful for ${email} (${processingTime}ms)`);
 
-    // Sync to Google Sheets in background (non-blocking)
-    appendToGoogleSheets(registrationDoc);
+    // Sync to Google Sheets (wait for completion to avoid serverless timeout)
+    try {
+      await appendToGoogleSheetsSync(registrationDoc);
+    } catch (sheetError) {
+      console.error('⚠️  Google Sheets sync failed but registration succeeded:', sheetError.message);
+    }
 
     // Return success response
     res.status(201).json({
