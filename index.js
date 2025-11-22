@@ -116,6 +116,11 @@ const appendToGoogleSheets = async (registrationData) => {
   // Run as background task - don't block the response
   setImmediate(async () => {
     try {
+      // Initialize Google Sheets if not already done
+      if (!sheets) {
+        await initializeGoogleSheets();
+      }
+
       if (!sheets || !process.env.GOOGLE_SHEET_ID) {
         console.log('⏭️  Skipping Google Sheets sync (not configured)');
         return;
@@ -141,6 +146,8 @@ const appendToGoogleSheets = async (registrationData) => {
         registrationData.createdAt.toISOString(),
       ];
 
+      console.log(`📊 Attempting to sync to Google Sheets: ${registrationData.shortTicketId}`);
+
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.GOOGLE_SHEET_ID,
         range: process.env.GOOGLE_SHEET_RANGE || 'Sheet1!A:Q',
@@ -151,9 +158,10 @@ const appendToGoogleSheets = async (registrationData) => {
         },
       });
 
-      console.log(`📊 Successfully synced to Google Sheets: ${registrationData.shortTicketId}`);
+      console.log(`✅ Successfully synced to Google Sheets: ${registrationData.shortTicketId}`);
     } catch (error) {
       console.error(`❌ Failed to sync to Google Sheets for ${registrationData.shortTicketId}:`, error.message);
+      console.error('Full error:', error);
       // Don't throw error - this is a background task
     }
   });
