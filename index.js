@@ -310,6 +310,18 @@ app.post('/api/register', registrationLimiter, upload.single('transactionScreens
 
     console.log(`📝 New registration attempt: ${email}`);
 
+    // Check ticket limit (configurable via environment variable)
+    const maxTickets = parseInt(process.env.MAX_TICKETS) || 150;
+    const totalTickets = await registrationsCollection.countDocuments();
+    if (totalTickets >= maxTickets) {
+      console.log(`🚫 Ticket limit reached: ${totalTickets}/${maxTickets}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Registration closed',
+        error: `Maximum ticket limit of ${maxTickets} has been reached. Registration is now closed.`,
+      });
+    }
+
     // Check if email already exists
     const existingRegistration = await registrationsCollection.findOne({ email: email.toLowerCase() });
     if (existingRegistration) {
@@ -412,6 +424,34 @@ app.get('/api/health', (req, res) => {
     message: 'Server is running',
     timestamp: new Date().toISOString(),
   });
+});
+
+// Check ticket availability endpoint
+app.get('/api/tickets/availability', async (req, res) => {
+  try {
+    const maxTickets = parseInt(process.env.MAX_TICKETS) || 150;
+    const soldTickets = await registrationsCollection.countDocuments();
+    const remainingTickets = Math.max(0, maxTickets - soldTickets);
+    const isAvailable = remainingTickets > 0;
+
+    res.json({
+      success: true,
+      data: {
+        maxTickets: maxTickets,
+        soldTickets: soldTickets,
+        remainingTickets: remainingTickets,
+        isAvailable: isAvailable,
+        status: isAvailable ? 'open' : 'closed',
+      },
+    });
+  } catch (error) {
+    console.error('Error checking ticket availability:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check ticket availability',
+      error: error.message,
+    });
+  }
 });
 
 // Get registration by ticket ID (optional utility endpoint)
