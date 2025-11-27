@@ -20,7 +20,7 @@ const corsOptions = {
     const allowedOrigins = [
       'https://thm.ieee-link.org',
       'http://localhost:3000',
-      'http://localhost:5173'
+      'http://localhost:5174'
     ];
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
@@ -139,7 +139,8 @@ const appendToGoogleSheetsSync = async (registrationData) => {
       registrationData.ieeeStatus,
       registrationData.ieeeMembershipId || '',
       registrationData.ticketType,
-      registrationData.transactionScreenshotUrl,
+        registrationData.referralCode || '',
+        registrationData.transactionScreenshotUrl,
       registrationData.status,
       registrationData.createdAt.toISOString(),
     ];
@@ -148,7 +149,7 @@ const appendToGoogleSheetsSync = async (registrationData) => {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: process.env.GOOGLE_SHEET_ID,
-      range: process.env.GOOGLE_SHEET_RANGE || 'Sheet1!A:Q',
+      range: process.env.GOOGLE_SHEET_RANGE || 'Sheet1!A:R',
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       resource: {
@@ -233,6 +234,7 @@ const validateRegistration = (req, res, next) => {
     branch,
     year,
     gender,
+    referralCode,
     accommodation,
     foodPreference,
     ieeeStatus,
@@ -383,6 +385,7 @@ app.post('/api/register', registrationLimiter, upload.single('transactionScreens
       branch,
       year,
       gender,
+      referralCode,
       accommodation,
       foodPreference,
       ieeeStatus,
@@ -446,6 +449,7 @@ app.post('/api/register', registrationLimiter, upload.single('transactionScreens
       branch: branch.trim(),
       year: year,
       gender: gender.toLowerCase().trim(),
+      referralCode: referralCode ? referralCode.trim() : null,
       accommodation: accommodation,
       foodPreference: foodPreference,
       ieeeStatus: ieeeStatus,
